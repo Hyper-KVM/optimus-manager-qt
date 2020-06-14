@@ -19,12 +19,15 @@
  */
 
 #include "optimussettings.h"
-#include "daemonclient.h"
 
 #include <QFile>
 
 const QMap<bool, QString> OptimusSettings::s_boolMap = {{false, QStringLiteral("no")},
                                                         {true, QStringLiteral("yes")}};
+const QMap<OptimusSettings::GPU, QString> OptimusSettings::s_gpuMap = {{Intel, QStringLiteral("intel")},
+                                                                       {Nvidia, QStringLiteral("nvidia")},
+                                                                       {Hybrid, QStringLiteral("hybrid")},
+                                                                       {Auto, QStringLiteral("auto")}};
 const QMap<OptimusSettings::SwitchingMethod, QString> OptimusSettings::s_switchingMethodMap = {{NoneMethod, QStringLiteral("none")},
                                                                                                {Nouveau, QStringLiteral("nouveau")},
                                                                                                {Bbswitch, QStringLiteral("bbswitch")},
@@ -49,8 +52,8 @@ OptimusSettings::OptimusSettings(QObject *parent)
 {
 }
 
-OptimusSettings::OptimusSettings(const QString &filename, QObject *parent) :
-    QSettings(filename, QSettings::IniFormat, parent)
+OptimusSettings::OptimusSettings(const QString &filename, QObject *parent)
+    : QSettings(filename, QSettings::IniFormat, parent)
 {
 }
 
@@ -132,6 +135,54 @@ void OptimusSettings::setAutoLogoutEnabled(bool enable)
 bool OptimusSettings::defaultAutoLogoutEnabled()
 {
     return true;
+}
+
+OptimusSettings::GPU OptimusSettings::startupMode() const
+{
+    const QString gpuString = value(QStringLiteral("optimus/startup_mode")).toString();
+    return s_gpuMap.key(gpuString, defaultStartupMode());
+}
+
+void OptimusSettings::setStartupMode(OptimusSettings::GPU gpu)
+{
+    setValue(QStringLiteral("optimus/startup_mode"), s_gpuMap[gpu]);
+}
+
+OptimusSettings::GPU OptimusSettings::defaultStartupMode()
+{
+    return Intel;
+}
+
+OptimusSettings::GPU OptimusSettings::batteryStartupMode() const
+{
+    const QString gpuString = value(QStringLiteral("optimus/startup_auto_battery_mode")).toString();
+    return s_gpuMap.key(gpuString, defaultBatteryStartupMode());
+}
+
+void OptimusSettings::setBatteryStartupMode(OptimusSettings::GPU gpu)
+{
+    setValue(QStringLiteral("optimus/startup_auto_battery_mode"), s_gpuMap[gpu]);
+}
+
+OptimusSettings::GPU OptimusSettings::defaultBatteryStartupMode()
+{
+    return Intel;
+}
+
+OptimusSettings::GPU OptimusSettings::externalPowerStartupMode() const
+{
+    const QString gpuString = value(QStringLiteral("optimus/startup_auto_extpower_mode")).toString();
+    return s_gpuMap.key(gpuString, defaultExternalPowerStartupMode());
+}
+
+void OptimusSettings::setExternalPowerStartupMode(OptimusSettings::GPU gpu)
+{
+    setValue(QStringLiteral("optimus/startup_auto_extpower_mode"), s_gpuMap[gpu]);
+}
+
+OptimusSettings::GPU OptimusSettings::defaultExternalPowerStartupMode()
+{
+    return Nvidia;
 }
 
 OptimusSettings::Driver OptimusSettings::intelDriver() const
@@ -279,6 +330,22 @@ bool OptimusSettings::defaultNvidiaIgnoreAbi()
     return false;
 }
 
+bool OptimusSettings::isNvidiaAllowExternalGpus() const
+{
+    const QString allowExternalGpuString = value(QStringLiteral("nvidia/allow_external_gpus")).toString();
+    return s_boolMap.key(allowExternalGpuString, defaultNvidiaAllowExternalGpus());
+}
+
+void OptimusSettings::setNvidiaAllowExternalGpus(bool allow)
+{
+    setValue(QStringLiteral("nvidia/allow_external_gpus"), s_boolMap[allow]);
+}
+
+bool OptimusSettings::defaultNvidiaAllowExternalGpus()
+{
+    return false;
+}
+
 OptimusSettings::NvidiaOptions OptimusSettings::nvidiaOptions() const
 {
     const QStringList optionStrings = value(QStringLiteral("nvidia/options"), nvidiaOptionsToStrings(defaultNvidiaOptions())).toStringList();
@@ -312,6 +379,11 @@ QPair<QString, OptimusSettings::ConfigType> OptimusSettings::detectConfigPath()
 OptimusSettings::ConfigType OptimusSettings::defaultConfigType()
 {
     return Permanent;
+}
+
+QString OptimusSettings::gpuString(OptimusSettings::GPU gpu)
+{
+    return s_gpuMap[gpu];
 }
 
 QStringList OptimusSettings::nvidiaOptionsToStrings(NvidiaOptions options)

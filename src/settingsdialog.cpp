@@ -20,7 +20,9 @@
 
 #include "settingsdialog.h"
 #include "ui_settingsdialog.h"
+
 #include "appsettings.h"
+#include "daemonclient.h"
 #include "optimusmanager.h"
 #include "optimussettings.h"
 #include "singleapplication.h"
@@ -43,23 +45,21 @@ SettingsDialog::SettingsDialog(QWidget *parent)
 
     // Set languages data
     ui->languageComboBox->addItem(tr("<System language>"), QLocale::AnyLanguage);
-    ui->languageComboBox->addItem(QIcon(QStringLiteral(":/flags/de.svg")), QStringLiteral("Deutsch"), QLocale::German);
-    ui->languageComboBox->addItem(QIcon(QStringLiteral(":/flags/en.svg")), QStringLiteral("English"), QLocale::English);
-    ui->languageComboBox->addItem(QIcon(QStringLiteral(":/flags/es.svg")), QStringLiteral("Español"), QLocale::Spanish);
-    ui->languageComboBox->addItem(QIcon(QStringLiteral(":/flags/hu.svg")), QStringLiteral("Magyar"), QLocale::Hungarian);
-    ui->languageComboBox->addItem(QIcon(QStringLiteral(":/flags/br.svg")), QStringLiteral("Português (Brasil)"), QLocale::Portuguese);
-    ui->languageComboBox->addItem(QIcon(QStringLiteral(":/flags/fi.svg")), QStringLiteral("Suomalainen"), QLocale::Finnish);
-    ui->languageComboBox->addItem(QIcon(QStringLiteral(":/flags/tr.svg")), QStringLiteral("Türk"), QLocale::Turkish);
-    ui->languageComboBox->addItem(QIcon(QStringLiteral(":/flags/ru.svg")), QStringLiteral("Русский"), QLocale::Russian);
-    ui->languageComboBox->addItem(QIcon(QStringLiteral(":/flags/cn.svg")), QStringLiteral("简体中文 (中国)"), QLocale::Chinese);
+    ui->languageComboBox->addItem(QIcon(QStringLiteral(":/icons/flags/de.svg")), QStringLiteral("Deutsch"), QLocale::German);
+    ui->languageComboBox->addItem(QIcon(QStringLiteral(":/icons/flags/en.svg")), QStringLiteral("English"), QLocale::English);
+    ui->languageComboBox->addItem(QIcon(QStringLiteral(":/icons/flags/es.svg")), QStringLiteral("Español"), QLocale::Spanish);
+    ui->languageComboBox->addItem(QIcon(QStringLiteral(":/icons/flags/hu.svg")), QStringLiteral("Magyar"), QLocale::Hungarian);
+    ui->languageComboBox->addItem(QIcon(QStringLiteral(":/icons/flags/br.svg")), QStringLiteral("Português (Brasil)"), QLocale::Portuguese);
+    ui->languageComboBox->addItem(QIcon(QStringLiteral(":/icons/flags/fi.svg")), QStringLiteral("Suomalainen"), QLocale::Finnish);
+    ui->languageComboBox->addItem(QIcon(QStringLiteral(":/icons/flags/tr.svg")), QStringLiteral("Türk"), QLocale::Turkish);
+    ui->languageComboBox->addItem(QIcon(QStringLiteral(":/icons/flags/ru.svg")), QStringLiteral("Русский"), QLocale::Russian);
+    ui->languageComboBox->addItem(QIcon(QStringLiteral(":/icons/flags/cn.svg")), QStringLiteral("简体中文 (中国)"), QLocale::Chinese);
 
     loadAppSettings();
 
     auto [path, type] = OptimusSettings::detectConfigPath();
     ui->optimusConfigTypeComboBox->setCurrentIndex(type);
     ui->optimusConfigPathEdit->setText(path);
-
-    ui->startupModeComboBox->setCurrentIndex(DaemonClient::startupMode()); // Startup mode stored in a separate file
 }
 
 SettingsDialog::~SettingsDialog()
@@ -131,15 +131,6 @@ void SettingsDialog::accept()
         return;
     }
 
-    client.setStartupMode(static_cast<DaemonClient::GPU>(ui->startupModeComboBox->currentIndex()));
-    if (client.error()) {
-        QMessageBox message;
-        message.setIcon(QMessageBox::Critical);
-        message.setText(DaemonClient::tr("Unable to send startup mode to Optimus Manager daemon: %1").arg(client.errorString()));
-        message.exec();
-        return;
-    }
-
     saveAppSettings();
 
     QDialog::accept();
@@ -178,6 +169,21 @@ void SettingsDialog::previewHybridIcon(const QString &fileName)
     ui->hybridIconButton->setIcon(icon);
 }
 
+void SettingsDialog::disableAutoStartupModes(int startupMode)
+{
+    if (startupMode == OptimusSettings::Auto) {
+        ui->batteryStartupModeComboBox->setEnabled(true);
+        ui->batteryStartupModeLabel->setEnabled(true);
+        ui->externalPowerStartupModeComboBox->setEnabled(true);
+        ui->externalPowerStartupModeLabel->setEnabled(true);
+    } else {
+        ui->batteryStartupModeComboBox->setEnabled(false);
+        ui->batteryStartupModeLabel->setEnabled(false);
+        ui->externalPowerStartupModeComboBox->setEnabled(false);
+        ui->externalPowerStartupModeLabel->setEnabled(false);
+    }
+}
+
 void SettingsDialog::disableSwitchingMethodIgnored(int switchingMethod)
 {
     switch (switchingMethod) {
@@ -202,7 +208,6 @@ void SettingsDialog::disableSwitchingMethodIgnored(int switchingMethod)
         ui->intelModesetCheckBox->setEnabled(false);
         if (ui->pciResetComboBox->currentIndex() != OptimusSettings::HotReset)
             ui->pciRemoveCheckBox->setEnabled(true);
-        break;
     }
 }
 
@@ -292,15 +297,15 @@ void SettingsDialog::restoreDefaults()
     ui->languageComboBox->setCurrentIndex(AppSettings::defaultLanguage());
     ui->autostartCheckBox->setChecked(AppSettings::defaultAutostartEnabled());
     ui->confirmSwitchingCheckBox->setChecked(AppSettings::defaultConfirmSwitching());
-    ui->intelIconEdit->setText(AppSettings::defaultTrayIconName(DaemonClient::Intel));
-    ui->nvidiaIconEdit->setText(AppSettings::defaultTrayIconName(DaemonClient::Nvidia));
-    ui->hybridIconEdit->setText(AppSettings::defaultTrayIconName(DaemonClient::Hybrid));
+    ui->intelIconEdit->setText(AppSettings::defaultTrayIconName(OptimusSettings::Intel));
+    ui->nvidiaIconEdit->setText(AppSettings::defaultTrayIconName(OptimusSettings::Nvidia));
+    ui->hybridIconEdit->setText(AppSettings::defaultTrayIconName(OptimusSettings::Hybrid));
 
     // Configuration files settings
     ui->optimusConfigTypeComboBox->setCurrentIndex(OptimusSettings::defaultConfigType());
 
     // Optimus settings
-    ui->startupModeComboBox->setCurrentIndex(DaemonClient::defaultStartupMode());
+    ui->startupModeComboBox->setCurrentIndex(OptimusSettings::defaultStartupMode());
     ui->switchingMethodComboBox->setCurrentIndex(OptimusSettings::defaultSwitchingMethod());
     ui->pciResetComboBox->setCurrentIndex(OptimusSettings::defaultPciReset());
     ui->pciPowerControlCheckBox->setChecked(OptimusSettings::defaultPciPowerControlEnabled());
@@ -319,6 +324,7 @@ void SettingsDialog::restoreDefaults()
     ui->nvidiaModesetCheckBox->setChecked(OptimusSettings::defaultNvidiaModesetEnabled());
     ui->nvidiaPatCheckBox->setChecked(OptimusSettings::defaultNvidiaPatEnabled());
     ui->nvidiaIgnoreAbiCheckBox->setChecked(OptimusSettings::defaultNvidiaIgnoreAbi());
+    ui->nvidiaAllowExternalGpusCheckBox->setChecked(OptimusSettings::defaultNvidiaAllowExternalGpus());
 
     const OptimusSettings::NvidiaOptions nvidiaOptions = OptimusSettings::defaultNvidiaOptions();
     ui->nvidiaOverclockingCheckBox->setChecked(nvidiaOptions.testFlag(OptimusSettings::Overclocking));
@@ -332,9 +338,9 @@ void SettingsDialog::loadAppSettings()
     ui->languageComboBox->setCurrentIndex(ui->languageComboBox->findData(settings.language()));
     ui->autostartCheckBox->setChecked(AppSettings::isAutostartEnabled());
     ui->confirmSwitchingCheckBox->setChecked(settings.isConfirmSwitching());
-    ui->intelIconEdit->setText(settings.gpuIconName(DaemonClient::Intel));
-    ui->nvidiaIconEdit->setText(settings.gpuIconName(DaemonClient::Nvidia));
-    ui->hybridIconEdit->setText(settings.gpuIconName(DaemonClient::Hybrid));
+    ui->intelIconEdit->setText(settings.gpuIconName(OptimusSettings::Intel));
+    ui->nvidiaIconEdit->setText(settings.gpuIconName(OptimusSettings::Nvidia));
+    ui->hybridIconEdit->setText(settings.gpuIconName(OptimusSettings::Hybrid));
 }
 
 void SettingsDialog::saveAppSettings()
@@ -350,9 +356,9 @@ void SettingsDialog::saveAppSettings()
     // General settings
     AppSettings::setAutostartEnabled(ui->autostartCheckBox->isChecked());
     appSettings.setConfirmSwitching(ui->confirmSwitchingCheckBox->isChecked());
-    appSettings.setGpuIconName(DaemonClient::Intel, ui->intelIconEdit->text());
-    appSettings.setGpuIconName(DaemonClient::Nvidia, ui->nvidiaIconEdit->text());
-    appSettings.setGpuIconName(DaemonClient::Hybrid, ui->hybridIconEdit->text());
+    appSettings.setGpuIconName(OptimusSettings::Intel, ui->intelIconEdit->text());
+    appSettings.setGpuIconName(OptimusSettings::Nvidia, ui->nvidiaIconEdit->text());
+    appSettings.setGpuIconName(OptimusSettings::Hybrid, ui->hybridIconEdit->text());
 }
 
 void SettingsDialog::loadOptimusSettings(const QString &path)
@@ -364,6 +370,9 @@ void SettingsDialog::loadOptimusSettings(const QString &path)
     ui->pciPowerControlCheckBox->setChecked(optimusSettings.isPciPowerControlEnabled());
     ui->pciRemoveCheckBox->setChecked(optimusSettings.isPciRemoveEnabled());
     ui->autoLogoutCheckBox->setChecked(optimusSettings.isAutoLogoutEnabled());
+    ui->startupModeComboBox->setCurrentIndex(optimusSettings.startupMode());
+    ui->batteryStartupModeComboBox->setCurrentIndex(optimusSettings.batteryStartupMode());
+    ui->externalPowerStartupModeComboBox->setCurrentIndex(optimusSettings.externalPowerStartupMode());
 
     // Intel settings
     ui->intelDriverComboBox->setCurrentIndex(optimusSettings.intelDriver());
@@ -377,6 +386,7 @@ void SettingsDialog::loadOptimusSettings(const QString &path)
     ui->nvidiaModesetCheckBox->setChecked(optimusSettings.isNvidiaModesetEnabled());
     ui->nvidiaPatCheckBox->setChecked(optimusSettings.isNvidiaPatEnabled());
     ui->nvidiaIgnoreAbiCheckBox->setChecked(optimusSettings.isNvidiaIgnoreAbi());
+    ui->nvidiaAllowExternalGpusCheckBox->setChecked(optimusSettings.isNvidiaAllowExternalGpus());
 
     const OptimusSettings::NvidiaOptions nvidiaOptions = optimusSettings.nvidiaOptions();
     ui->nvidiaOverclockingCheckBox->setChecked(nvidiaOptions.testFlag(OptimusSettings::Overclocking));
@@ -392,6 +402,9 @@ void SettingsDialog::saveOptimusSettings(const QString &path) const
     optimusSettings.setPciPowerControlEnabled(ui->pciPowerControlCheckBox->isChecked());
     optimusSettings.setPciRemoveEnabled(ui->pciRemoveCheckBox->isChecked());
     optimusSettings.setAutoLogoutEnabled(ui->autoLogoutCheckBox->isChecked());
+    optimusSettings.setStartupMode(static_cast<OptimusSettings::GPU>(ui->startupModeComboBox->currentIndex()));
+    optimusSettings.setBatteryStartupMode(static_cast<OptimusSettings::GPU>(ui->batteryStartupModeComboBox->currentIndex()));
+    optimusSettings.setExternalPowerStartupMode(static_cast<OptimusSettings::GPU>(ui->externalPowerStartupModeComboBox->currentIndex()));
 
     // Intel settings
     optimusSettings.setIntelDriver(static_cast<OptimusSettings::Driver>(ui->intelDriverComboBox->currentIndex()));
@@ -405,6 +418,7 @@ void SettingsDialog::saveOptimusSettings(const QString &path) const
     optimusSettings.setNvidiaModesetEnabled(ui->nvidiaModesetCheckBox->isChecked());
     optimusSettings.setNvidiaPatEnabled(ui->nvidiaPatCheckBox->isChecked());
     optimusSettings.setNvidiaIgnoreAbi(ui->nvidiaIgnoreAbiCheckBox->isChecked());
+    optimusSettings.setNvidiaAllowExternalGpus(ui->nvidiaAllowExternalGpusCheckBox->isChecked());
 
     OptimusSettings::NvidiaOptions nvidiaOptions;
     nvidiaOptions.setFlag(OptimusSettings::Overclocking, ui->nvidiaOverclockingCheckBox->isChecked());
@@ -450,7 +464,7 @@ QString SettingsDialog::configurationPath() const
 QString SettingsDialog::optimusManagerVersion()
 {
     // Parse Optimus Manager version
-    QFile optimusManagerBin(QStringLiteral("/usr/bin/optimus-manager-daemon"));
+    QFile optimusManagerBin(QStringLiteral("/usr/bin/optimus-manager"));
     if (!optimusManagerBin.open(QIODevice::ReadOnly)) {
         QMessageBox message;
         message.setIcon(QMessageBox::Critical);
